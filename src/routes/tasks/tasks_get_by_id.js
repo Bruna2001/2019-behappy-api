@@ -1,35 +1,45 @@
-import knex from "../../config/knex";
+import { Task } from "../../models";
 
-const table_name = "tasks";
+const response_builder = data => {
+  if (data.length == undefined || data.length == 0)
+    return { status: "400", data: "Gentileza não encontrada" };
+  else
+    return {
+      status: data.length >= 1 ? "200" : "401",
+      data: {
+        oid: data[0].oid ? data[0].oid : 0,
+        title: data[0].title ? data[0].title : "",
+        description: data[0].description ? data[0].description : ""
+      },
+      links: [
+        {
+          rel: `/linkrels/tasks/${data[0].oid}/${data[0].done ? "un" : ""}done`,
+          uri: `/tasks/${data[0].oid}/${data[0].done ? "un" : ""}done`
+        },
+        {
+          rel: `/linkrels/tasks/${data[0].oid}/${
+            data[0].delete ? "un" : ""
+          }delete`,
+          uri: `/tasks/${data[0].oid}/${data[0].delete ? "un" : ""}delete`
+        }
+      ]
+    };
+};
 
-class Task {
-  static getAll() {
-    return knex
-      .from(table_name)
-      .select()
-      .then(results => Task.deserialize(results))
-      .catch(err => err);
+const responde_code_builder = data => {
+  if (data.length == undefined || data.length == 0) return 400;
+  else return 200;
+};
+
+export default {
+  method: "GET",
+  path: "/tasks/{task_id}",
+  options: {
+    auth: "token"
+  },
+  handler: (request, reply) => {
+    return Task.getById(request.params.task_id).then(tasks =>
+      reply.response(response_builder(tasks)).code(responde_code_builder(tasks))
+    );
   }
-
-  static getById(id) {
-    return knex(table_name)
-      .where("oid", id)
-      .select()
-      .then(results => Task.deserialize(results))
-      .catch(err => err);
-  }
-
-  static deserialize(json) {
-    return json.map(data => {
-      let task = new Task();
-      task.oid = data.oid ? data.oid : 0;
-      task.title = data.title ? data.title : "";
-      task.description = data.description ? data.description : "";
-      task.done = data.done ? true : false;
-      task.delete = data.delete ? data.delete : false;
-      return task;
-    });
-  }
-}
-
-export default Task;
+};
